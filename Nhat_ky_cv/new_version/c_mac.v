@@ -5,7 +5,7 @@
 * Phương pháp: Sử dụng pipeline valid signal để điều khiển tích lũy.
 */
 
-//`include "cmult.sv" // Giả định cmult có độ trễ 5 chu kỳ
+//`include "cmult.v" // Giả định cmult có độ trễ 5 chu kỳ
 module c_mac #(
     parameter Q = 8,  // Độ rộng bit phần thập phân (Fixed-point)
     parameter N = 16 // Tổng độ rộng bit

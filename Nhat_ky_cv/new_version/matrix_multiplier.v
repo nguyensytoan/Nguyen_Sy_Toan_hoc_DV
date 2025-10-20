@@ -1,4 +1,4 @@
-//`include "c_mac.sv"
+//`include "c_mac.v"
 module matrix_multiplier #(
     parameter Q = 8,
     parameter N = 16,

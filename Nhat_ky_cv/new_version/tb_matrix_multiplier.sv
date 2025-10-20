@@ -41,7 +41,8 @@ module tb_matrix_multiplier;
         .H_in_r(H_in_r),
         .H_in_i(H_in_i),
         .q_index(q_index),
-        .done(done),
+       // .done(done),
+	.all_16_hq_done(done),
         .Hq_out_valid(Hq_out_valid),
         .Hq_out_r(Hq_out_r),
         .Hq_out_i(Hq_out_i)
