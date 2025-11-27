@@ -1,0 +1,16 @@
+Analysis & Synthesis Status : Successful - Thu Sep 04 11:22:52 2025
+Quartus Prime Version : 17.1.0 Build 590 10/25/2017 SJ Lite Edition
+Revision Name : Mario
+Top-level Entity Name : lab8
+Family : MAX 10
+Total logic elements : 35,872
+    Total combinational functions : 35,868
+    Dedicated logic registers : 835
+Total registers : 835
+Total pins : 76
+Total virtual pins : 0
+Total memory bits : 0
+Embedded Multiplier 9-bit elements : 0
+Total PLLs : 1
+UFM blocks : 0
+ADC blocks : 0

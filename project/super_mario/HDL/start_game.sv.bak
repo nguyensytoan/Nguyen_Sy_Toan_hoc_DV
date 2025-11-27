@@ -1,0 +1,27 @@
+module start_game(
+	input [9:0]   DrawX, DrawY,       // Current pixel coordinates
+	input [2:0]   RoomNum,				 // current "level"
+	output logic  is_start,				 // Whether current pixel belongs to logo or background
+	output logic  [15:0] logo_address 
+);
+	always_comb
+	begin
+		case (RoomNum)
+				2'd7: // start screen room
+					begin
+						if ( (DrawX >= 40) && (DrawX < 600) && (DrawY >= 40) && (DrawY < 440) )
+							is_start = 1'b1;
+						else
+							is_start = 1'b0;
+					end
+				default:
+					is_start = 1'b0;
+		endcase
+		
+		if (is_start == 1'b1)
+			logo_address = (DrawX - 40) + (DrawY - 40) * 560;
+		else
+			logo_address = 14'd0; // don't care
+	end
+			
+endmodule 

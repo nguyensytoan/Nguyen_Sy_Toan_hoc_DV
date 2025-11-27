@@ -1,0 +1,87 @@
+void loop() {
+    // --- 1. Sinh 12-bit test ---
+    uint16_t test_bits = random(0, 4096); // 0..2^12-1
+    char bit_string[13];
+    for(int i=0;i<12;i++)
+        bit_string[11-i] = (test_bits & (1<<i)) ? '1' : '0';
+    bit_string[12] = '\0';
+
+    Serial.printf("\n=== Sending 12-bit: %s (0x%03X) ===\n", bit_string, test_bits);
+
+    // --- 2. SC + QAM mapping ---
+    int Sc_idx = strtol(String(bit_string).substring(0,4).c_str(), NULL, 2);
+    int I_idx[2] = {strtol(String(bit_string).substring(4,6).c_str(), NULL, 2),
+                     strtol(String(bit_string).substring(8,10).c_str(), NULL, 2)};
+    int Q_idx[2] = {strtol(String(bit_string).substring(6,8).c_str(), NULL, 2),
+                     strtol(String(bit_string).substring(10,12).c_str(), NULL, 2)};
+    float xI[2] = {v[I_idx[0]], v[I_idx[1]]};
+    float xQ[2] = {v[Q_idx[0]], v[Q_idx[1]]};
+
+    complex_t X_ostbc[2][2] = {{0}};
+    for(int p=0;p<nd;p++)
+        for(int r=0;r<2;r++)
+            for(int c=0;c<2;c++)
+                X_ostbc[r][c] = cadd(X_ostbc[r][c],
+                                     cadd(cmul((complex_t){xI[p],0}, A[p][r][c]),
+                                          cmul((complex_t){0,xQ[p]}, B[p][r][c])));
+
+    complex_t C_tx[nT][T];
+    for(int ant=0; ant<nT; ant++)
+        for(int ts=0; ts<T; ts++){
+            complex_t sum = {0,0};
+            for(int k=0; k<T; k++) sum = cadd(sum, cmul(S[Sc_idx][ant][k], X_ostbc[k][ts]));
+            C_tx[ant][ts] = sum;
+        }
+
+    // --- 3. Mô phỏng kênh & nhận Y ---
+    complex_t H[nR][nT], Y[nR][T];
+    for(int r=0;r<nR;r++)
+        for(int c=0;c<nT;c++){
+            H[r][c].re = randn()/1.414f;
+            H[r][c].im = randn()/1.414f;
+        }
+
+    float noise_var = 0.05;
+    for(int r=0;r<nR;r++)
+        for(int s=0;s<T;s++){
+            Y[r][s] = (complex_t){sqrtf(noise_var/2)*randn(), sqrtf(noise_var/2)*randn()};
+            for(int t=0;t<nT;t++) Y[r][s] = cadd(Y[r][s], cmul(H[r][t], C_tx[t][s]));
+        }
+
+    // --- 4. Gửi H & Y ---
+    send_matrix(H, nR, nT, "H", false);
+    send_matrix(Y, nR, T, "Y", false);
+
+    // --- 5. Nhận kết quả 12-bit từ FPGA ---
+    uint8_t rx_buf[2];
+    int bytes_received = 0;
+    unsigned long start_time = millis();
+    while(bytes_received < 2 && millis()-start_time < 5000){
+        if(Serial2.available() > 0){
+            rx_buf[bytes_received++] = Serial2.read();
+        }
+    }
+
+    if(bytes_received == 2){
+        uint16_t fpga_result = ((uint16_t)rx_buf[0]<<8) | rx_buf[1];
+        fpga_result &= 0x0FFF; // 12-bit mask
+
+        // Convert to binary string
+        char bin_str[13];
+        for(int i=0;i<12;i++)
+            bin_str[11-i] = (fpga_result & (1<<i)) ? '1' : '0';
+        bin_str[12] = '\0';
+
+        Serial.printf("FPGA result: 0x%03X (Bin: %s)\n", fpga_result, bin_str);
+        Serial.printf("Input      : 0x%03X (Bin: %s)\n", test_bits, bit_string);
+
+        if(strcmp(bit_string, bin_str) == 0)
+            Serial.println("✅ MATCH!");
+        else
+            Serial.println("❌ MISMATCH!");
+    } else {
+        Serial.println("❌ TIMEOUT: no FPGA response.");
+    }
+
+    delay(100); // Delay giữa các block test
+}

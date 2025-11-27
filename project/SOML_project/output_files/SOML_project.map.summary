@@ -1,0 +1,16 @@
+Analysis & Synthesis Status : Successful - Thu Nov 27 14:40:30 2025
+Quartus Prime Version : 17.1.0 Build 590 10/25/2017 SJ Lite Edition
+Revision Name : SOML_project
+Top-level Entity Name : soml_decoder_top
+Family : MAX 10
+Total logic elements : 19,181
+    Total combinational functions : 12,352
+    Dedicated logic registers : 12,491
+Total registers : 12491
+Total pins : 150
+Total virtual pins : 0
+Total memory bits : 3,603
+Embedded Multiplier 9-bit elements : 288
+Total PLLs : 0
+UFM blocks : 0
+ADC blocks : 0

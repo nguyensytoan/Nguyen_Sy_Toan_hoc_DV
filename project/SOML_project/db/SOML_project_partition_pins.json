@@ -1,0 +1,257 @@
+{
+	"partitions" : [
+		{
+			"name" : "Top",
+			"pins" : [
+				{
+					"name" : "GPIO_TX",
+					"strict" : false
+				},
+				{
+					"name" : "output_valid",
+					"strict" : false
+				},
+				{
+					"name" : "signal_out_12bit[0]",
+					"strict" : false
+				},
+				{
+					"name" : "signal_out_12bit[1]",
+					"strict" : false
+				},
+				{
+					"name" : "signal_out_12bit[2]",
+					"strict" : false
+				},
+				{
+					"name" : "signal_out_12bit[3]",
+					"strict" : false
+				},
+				{
+					"name" : "signal_out_12bit[4]",
+					"strict" : false
+				},
+				{
+					"name" : "signal_out_12bit[5]",
+					"strict" : false
+				},
+				{
+					"name" : "signal_out_12bit[6]",
+					"strict" : false
+				},
+				{
+					"name" : "signal_out_12bit[7]",
+					"strict" : false
+				},
+				{
+					"name" : "signal_out_12bit[8]",
+					"strict" : false
+				},
+				{
+					"name" : "signal_out_12bit[9]",
+					"strict" : false
+				},
+				{
+					"name" : "signal_out_12bit[10]",
+					"strict" : false
+				},
+				{
+					"name" : "signal_out_12bit[11]",
+					"strict" : false
+				},
+				{
+					"name" : "Smin_index[0]",
+					"strict" : false
+				},
+				{
+					"name" : "Smin_index[1]",
+					"strict" : false
+				},
+				{
+					"name" : "Smin_index[2]",
+					"strict" : false
+				},
+				{
+					"name" : "Smin_index[3]",
+					"strict" : false
+				},
+				{
+					"name" : "Smin_index[4]",
+					"strict" : false
+				},
+				{
+					"name" : "s_I_1[22]",
+					"strict" : false
+				},
+				{
+					"name" : "s_I_1[23]",
+					"strict" : false
+				},
+				{
+					"name" : "s_I_1[24]",
+					"strict" : false
+				},
+				{
+					"name" : "s_I_1[25]",
+					"strict" : false
+				},
+				{
+					"name" : "s_I_1[26]",
+					"strict" : false
+				},
+				{
+					"name" : "s_I_1[27]",
+					"strict" : false
+				},
+				{
+					"name" : "s_I_1[28]",
+					"strict" : false
+				},
+				{
+					"name" : "s_I_1[29]",
+					"strict" : false
+				},
+				{
+					"name" : "s_I_1[30]",
+					"strict" : false
+				},
+				{
+					"name" : "s_I_1[31]",
+					"strict" : false
+				},
+				{
+					"name" : "s_Q_1[22]",
+					"strict" : false
+				},
+				{
+					"name" : "s_Q_1[23]",
+					"strict" : false
+				},
+				{
+					"name" : "s_Q_1[24]",
+					"strict" : false
+				},
+				{
+					"name" : "s_Q_1[25]",
+					"strict" : false
+				},
+				{
+					"name" : "s_Q_1[26]",
+					"strict" : false
+				},
+				{
+					"name" : "s_Q_1[27]",
+					"strict" : false
+				},
+				{
+					"name" : "s_Q_1[28]",
+					"strict" : false
+				},
+				{
+					"name" : "s_Q_1[29]",
+					"strict" : false
+				},
+				{
+					"name" : "s_Q_1[30]",
+					"strict" : false
+				},
+				{
+					"name" : "s_Q_1[31]",
+					"strict" : false
+				},
+				{
+					"name" : "s_I_2[22]",
+					"strict" : false
+				},
+				{
+					"name" : "s_I_2[23]",
+					"strict" : false
+				},
+				{
+					"name" : "s_I_2[24]",
+					"strict" : false
+				},
+				{
+					"name" : "s_I_2[25]",
+					"strict" : false
+				},
+				{
+					"name" : "s_I_2[26]",
+					"strict" : false
+				},
+				{
+					"name" : "s_I_2[27]",
+					"strict" : false
+				},
+				{
+					"name" : "s_I_2[28]",
+					"strict" : false
+				},
+				{
+					"name" : "s_I_2[29]",
+					"strict" : false
+				},
+				{
+					"name" : "s_I_2[30]",
+					"strict" : false
+				},
+				{
+					"name" : "s_I_2[31]",
+					"strict" : false
+				},
+				{
+					"name" : "s_Q_2[22]",
+					"strict" : false
+				},
+				{
+					"name" : "s_Q_2[23]",
+					"strict" : false
+				},
+				{
+					"name" : "s_Q_2[24]",
+					"strict" : false
+				},
+				{
+					"name" : "s_Q_2[25]",
+					"strict" : false
+				},
+				{
+					"name" : "s_Q_2[26]",
+					"strict" : false
+				},
+				{
+					"name" : "s_Q_2[27]",
+					"strict" : false
+				},
+				{
+					"name" : "s_Q_2[28]",
+					"strict" : false
+				},
+				{
+					"name" : "s_Q_2[29]",
+					"strict" : false
+				},
+				{
+					"name" : "s_Q_2[30]",
+					"strict" : false
+				},
+				{
+					"name" : "s_Q_2[31]",
+					"strict" : false
+				},
+				{
+					"name" : "clk",
+					"strict" : false
+				},
+				{
+					"name" : "rst",
+					"strict" : false
+				},
+				{
+					"name" : "GPIO_RX",
+					"strict" : false
+				}
+			]
+		}
+	]
+}

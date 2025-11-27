@@ -1,0 +1,14 @@
+
+State Machine - |soml_decoder_top|state
+Name state.S_IDLE state.S_CALC state.S_LOAD 
+state.S_IDLE 0 0 0 
+state.S_LOAD 1 0 1 
+state.S_CALC 1 1 0 
+
+State Machine - |soml_decoder_top|uart_top:uart_inst|tx_state
+Name tx_state.TX_SEND_LO tx_state.TX_WAIT_HI tx_state.TX_SEND_HI tx_state.TX_IDLE tx_state.TX_WAIT_LO 
+tx_state.TX_IDLE 0 0 0 0 0 
+tx_state.TX_SEND_HI 0 0 1 1 0 
+tx_state.TX_WAIT_HI 0 1 0 1 0 
+tx_state.TX_SEND_LO 1 0 0 1 0 
+tx_state.TX_WAIT_LO 0 0 0 1 1 
