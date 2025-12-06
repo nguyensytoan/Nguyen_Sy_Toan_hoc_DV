@@ -1,0 +1,228 @@
+#include <Arduino.h> 
+#include <math.h>    
+#include <stdlib.h>  
+
+// =================== CẤU HÌNH UART ===================
+#define RX_PIN 16 
+#define TX_PIN 17 
+#define BAUD_RATE 9600
+
+// =================== THAM SỐ HỆ THỐNG ===================
+#define nT 4 
+#define nR 4 
+#define T 2  
+#define SM 16 
+#define nd 2  
+
+typedef struct { float re; float im; } complex_t;
+
+// Biến toàn cục
+complex_t **H, **Y, **C_tx;
+
+// 16-QAM constellation
+const float v[4] = {-3.0f, -1.0f, 1.0f, 3.0f};
+
+// Alamouti Matrices
+const complex_t A[2][2][2] = { {{{1,0},{0,0}}, {{0,0},{1,0}}}, {{{0,0},{-1,0}}, {{1,0},{0,0}}} };
+const complex_t B[2][2][2] = { {{{1,0},{0,0}}, {{0,0},{-1,0}}}, {{{0,0},{1,0}}, {{1,0},{0,0}}} };
+
+// SC Codewords
+const complex_t S[SM][nT][T] = {
+    {{{0.5,0},{0.5,0}}, {{-0.5,0},{0.5,0}}, {{0.5,0},{0.5,0}}, {{-0.5,0},{0.5,0}}},
+    {{{0.5,0},{0.5,0}}, {{-0.5,0},{0.5,0}}, {{0.5,0},{0.0,0.5}}, {{0.0,0.5},{0.5,0}}},
+    {{{0.5,0},{0.5,0}}, {{-0.5,0},{0.5,0}}, {{0.5,0},{-0.5,0}}, {{0.5,0},{0.5,0}}},
+    {{{0.5,0},{0.5,0}}, {{-0.5,0},{0.5,0}}, {{0.5,0},{0.0,-0.5}}, {{0.0,-0.5},{0.5,0}}},
+    {{{0.5,0},{0.5,0}}, {{-0.5,0},{0.5,0}}, {{-0.5,0},{0.5,0}}, {{-0.5,0},{-0.5,0}}},
+    {{{0.5,0},{0.5,0}}, {{-0.5,0},{0.5,0}}, {{-0.5,0},{0.0,0.5}}, {{0.0,-0.5},{-0.5,0}}},
+    {{{0.5,0},{0.5,0}}, {{-0.5,0},{0.5,0}}, {{-0.5,0},{-0.5,0}}, {{0.5,0},{-0.5,0}}},
+    {{{0.5,0},{0.5,0}}, {{-0.5,0},{0.5,0}}, {{-0.5,0},{0.0,-0.5}}, {{0.0,-0.5},{-0.5,0}}},
+    {{{0.5,0},{0.5,0}}, {{-0.5,0},{0.5,0}}, {{0.0,0.5},{0.5,0}}, {{-0.5,0},{0.0,0.5}}},
+    {{{0.5,0},{0.5,0}}, {{-0.5,0},{0.5,0}}, {{0.0,0.5},{0.0,0.5}}, {{0.0,0.5},{0.0,0.5}}},
+    {{{0.5,0},{0.5,0}}, {{-0.5,0},{0.5,0}}, {{0.0,0.5},{-0.5,0}}, {{0.5,0},{0.0,0.5}}},
+    {{{0.5,0},{0.5,0}}, {{-0.5,0},{0.5,0}}, {{0.0,0.5},{0.0,-0.5}}, {{0.0,-0.5},{0.0,0.5}}},
+    {{{0.5,0},{0.5,0}}, {{-0.5,0},{0.5,0}}, {{0.0,-0.5},{0.5,0}}, {{-0.5,0},{0.0,-0.5}}},
+    {{{0.5,0},{0.5,0}}, {{-0.5,0},{0.5,0}}, {{0.0,-0.5},{0.0,0.5}}, {{0.0,0.5},{0.0,-0.5}}},
+    {{{0.5,0},{0.5,0}}, {{-0.5,0},{0.5,0}}, {{0.0,-0.5},{-0.5,0}}, {{0.5,0},{0.0,-0.5}}},
+    {{{0.5,0},{0.5,0}}, {{-0.5,0},{0.5,0}}, {{0.0,-0.5},{0.0,-0.5}}, {{0.0,-0.5},{0.0,-0.5}}}
+};
+
+complex_t cadd(complex_t a, complex_t b) { complex_t c = {a.re+b.re, a.im+b.im}; return c; }
+complex_t cmul(complex_t a, complex_t b) { complex_t c = {a.re*b.re - a.im*b.im, a.re*b.im + a.im*b.re}; return c; }
+float randn() {
+    float u1 = (float)rand() / RAND_MAX; float u2 = (float)rand() / RAND_MAX;
+    return sqrtf(-2.0f * logf(u1)) * cosf(2 * M_PI * u2);
+}
+
+// =================== HÀM IN ẤN & GỬI ===================
+void print_matrix_hex(complex_t **M, int rows, int cols, const char *label) {
+    Serial.printf("\n--- %s (%dx%d) [HEX Representation] ---\n", label, rows, cols);
+    for (int r = 0; r < rows; r++) {
+        for (int c = 0; c < cols; c++) {
+            union { float f; uint8_t b[4]; } conv;
+            conv.f = M[r][c].re;
+            Serial.printf("[%d][%d] RE: %02X %02X %02X %02X | ", r, c, conv.b[3], conv.b[2], conv.b[1], conv.b[0]); 
+            conv.f = M[r][c].im;
+            Serial.printf("IM: %02X %02X %02X %02X\n", conv.b[3], conv.b[2], conv.b[1], conv.b[0]);
+        }
+    }
+}
+
+void WriteComChar(uint8_t b) { Serial2.write(b); }
+
+void send_matrix(complex_t **M, int rows, int cols, const char *label, uint8_t header_cmd) {
+    Serial.printf("Dang gui %s qua UART (Lenh: 0x%02X)... ", label, header_cmd);
+    WriteComChar(header_cmd);
+    delay(20); 
+    for (int r = 0; r < rows; r++) {
+        for (int c = 0; c < cols; c++) {
+            union { float f; uint8_t b[4]; } conv;
+            conv.f = M[r][c].re;
+            WriteComChar(conv.b[0]); WriteComChar(conv.b[1]); WriteComChar(conv.b[2]); WriteComChar(conv.b[3]);
+            conv.f = M[r][c].im;
+            WriteComChar(conv.b[0]); WriteComChar(conv.b[1]); WriteComChar(conv.b[2]); WriteComChar(conv.b[3]);
+            delayMicroseconds(150);
+        }
+    }
+    Serial.println("Xong.");
+}
+
+// =================== SETUP ===================
+void setup() {
+    Serial.begin(9600);
+    Serial2.begin(BAUD_RATE, SERIAL_8N2, RX_PIN, TX_PIN);
+    randomSeed(analogRead(0));
+
+    H = (complex_t **)malloc(nR * sizeof(complex_t*));
+    Y = (complex_t **)malloc(nR * sizeof(complex_t*));
+    C_tx = (complex_t **)malloc(nT * sizeof(complex_t*));
+    for (int i=0; i<nR; i++) { H[i] = (complex_t*)malloc(nT*sizeof(complex_t)); Y[i] = (complex_t*)malloc(T*sizeof(complex_t)); }
+    for (int i=0; i<nT; i++) { C_tx[i] = (complex_t*)malloc(T*sizeof(complex_t)); }
+
+    Serial.println("\n=== HE THONG SAN SANG ===");
+}
+
+// =================== LOOP: NHẬP BINARY ===================
+void loop() {
+    // 1. Nhắc người dùng nhập chuỗi nhị phân
+    Serial.println("\n👉 Nhap chuoi 12 bit nhi phan (VD: 110010100011):");
+    
+    // Chờ dữ liệu
+    while (Serial.available() == 0) { delay(100); }
+    
+    // Đọc chuỗi string
+    String binStr = Serial.readStringUntil('\n');
+    binStr.trim(); // Xóa khoảng trắng, xuống dòng thừa
+
+    // 2. Kiểm tra độ dài và ký tự
+    if (binStr.length() > 12) {
+        Serial.println("❌ Loi: Chuoi qua dai (Max 12 bit)!");
+        return;
+    }
+    
+    for (int i = 0; i < binStr.length(); i++) {
+        if (binStr[i] != '0' && binStr[i] != '1') {
+            Serial.println("❌ Loi: Chi chap nhan ky tu 0 hoac 1!");
+            return;
+        }
+    }
+
+    // 3. Chuyển đổi String nhị phân -> Số nguyên (Integer)
+    // strtol(string, NULL, base) -> base 2 là nhị phân
+    int input_val = strtol(binStr.c_str(), NULL, 2);
+
+    // Hiển thị lại chuỗi đã nhập (có thêm số 0 ở đầu nếu thiếu)
+    char binary_display[13];
+    sprintf(binary_display, "%012s", binStr.c_str()); 
+
+    // 4. Phân tách bit để hiển thị ý nghĩa
+    int Sc_idx = (input_val >> 8) & 0x0F;
+    int Sym2_raw = (input_val >> 4) & 0x0F;
+    int Sym1_raw = input_val & 0x0F;
+
+    int I_idx[nd], Q_idx[nd];
+    I_idx[0] = (Sym1_raw >> 2) & 0x03; Q_idx[0] = Sym1_raw & 0x03;
+    I_idx[1] = (Sym2_raw >> 2) & 0x03; Q_idx[1] = Sym2_raw & 0x03;
+
+    Serial.printf("\n=========================================\n");
+    Serial.printf("INPUT (BIN): %s\n", binary_display);
+    Serial.printf("VALUE (DEC): %d\n", input_val);
+    Serial.println("-----------------------------------------");
+    Serial.printf(" [11:8] Antenna Code : %d (0x%X)\n", Sc_idx, Sc_idx);
+    Serial.printf(" [ 7:4] Symbol 2     : I=%d, Q=%d\n", I_idx[1], Q_idx[1]);
+    Serial.printf(" [ 3:0] Symbol 1     : I=%d, Q=%d\n", I_idx[0], Q_idx[0]);
+    Serial.printf("=========================================\n");
+
+    // 5. TÍNH TOÁN (Encoding & Channel)
+    
+    // a. OSTBC X
+    complex_t X_ostbc[2][2] = {{{0}}};
+    for (int p=0; p<nd; p++) {
+        for(int r=0; r<2; r++) {
+            for (int c=0; c<2; c++) {
+                complex_t tmpA = cmul((complex_t){v[I_idx[p]], 0}, A[p][r][c]);
+                complex_t tmpB = cmul((complex_t){0, v[Q_idx[p]]}, B[p][r][c]);
+                X_ostbc[r][c] = cadd(X_ostbc[r][c], cadd(tmpA, tmpB));
+            }
+        }
+    }
+
+    // b. C_tx (Transmit Matrix)
+    for (int ant=0; ant<nT; ant++) {
+        for (int ts=0; ts<T; ts++) {
+            complex_t sum = {0,0};
+            for (int k=0; k<T; k++) sum = cadd(sum, cmul(S[Sc_idx][ant][k], X_ostbc[k][ts]));
+            C_tx[ant][ts] = sum;
+        }
+    }
+
+    // c. Tạo Kênh H (Mỗi lần nhập là 1 kênh mới)
+    float noise_val = 0.01; 
+    for (int r=0; r<nR; r++) {
+        for (int c=0; c<nT; c++) {
+            H[r][c].re = randn()/sqrtf(2.0f); H[r][c].im = randn()/sqrtf(2.0f);
+        }
+    }
+    
+    // d. Tính Y = H*C + N
+    for(int r=0; r<nR; r++){
+        for(int s=0; s<T; s++){
+            Y[r][s] = (complex_t){0,0};
+            for (int t=0; t<nT; t++) Y[r][s] = cadd(Y[r][s], cmul(H[r][t], C_tx[t][s]));
+            Y[r][s].re += sqrtf(noise_val/2)*randn();
+            Y[r][s].im += sqrtf(noise_val/2)*randn();
+        }
+    }
+
+    // 6. IN RA HEX ĐỂ KIỂM TRA
+    print_matrix_hex(H, nR, nT, "MA TRAN KENH H");
+    print_matrix_hex(Y, nR, T,  "MA TRAN THU Y");
+
+    // 7. GỬI XUỐNG FPGA
+    send_matrix(H, nR, nT, "Ma Tran H", 0xAA);
+    delay(200);
+    send_matrix(Y, nR, T,  "Ma Tran Y", 0xBB);
+
+    // 8. CHỜ KẾT QUẢ
+    Serial.println("[WAIT] Cho ket qua giai ma...");
+    unsigned long t0 = millis();
+    while(Serial2.available() < 2 && (millis() - t0 < 5000));
+
+    if (Serial2.available() >= 2) {
+        uint8_t low = Serial2.read();
+        uint8_t high = Serial2.read();
+        uint16_t result = ((uint16_t)high << 8) | low;
+        
+        // Hiển thị kết quả nhận được dạng Binary để dễ so sánh
+        char result_bin[13];
+        for (int z = 11; z >= 0; z--) result_bin[11-z] = (result & (1 << z)) ? '1' : '0';
+        result_bin[12] = '\0';
+
+        Serial.printf("\n>> KET QUẢ TỪ FPGA (DEC): %d\n", result);
+        Serial.printf(">> KET QUẢ TỪ FPGA (BIN): %s\n", result_bin);
+        
+        if (result == input_val) Serial.println("✅ MATCH: FPGA giai ma CHINH XAC!");
+        else Serial.println("❌ MISMATCH: Ket qua SAI!");
+    } else {
+        Serial.println("❌ TIMEOUT: Khong co phan hoi.");
+    }
+}
