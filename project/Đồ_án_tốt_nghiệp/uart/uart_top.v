@@ -1,32 +1,22 @@
-
-
-// ver nay la co gui 12 bit.nhung chua fai la input
 module uart_top (
-    // =================================================================
-    // 1. CỔNG HỆ THỐNG & UART
-    // =================================================================
     input  wire        CLOCK_50,   
-    input  wire        sw_0,       // Reset (GẠT LÊN = CHẠY, GẠT XUỐNG = RESET)
+    input  wire        sw_0,      
 
     input  wire        GPIO_RX,    // Nối ESP32 TX
     output wire        GPIO_TX,    // Nối ESP32 RX
 
     // LED DEBUG
     output wire [9:0]  LEDR,
-
-    // =================================================================
-    // 2. CỔNG OUTPUT DỮ LIỆU (NỐI VỚI SOML_DECODER)
-    // =================================================================
     
     // --- Output cho Ma trận H ---
     output reg [31:0] H_re_out,    
     output reg [31:0] H_im_out,    
-    output reg        H_out,       // Valid Pulse (báo hiệu dữ liệu H hợp lệ)
+    output reg        H_out,       
 
     // --- Output cho Ma trận Y ---
     output reg [31:0] Y_re_out,    
     output reg [31:0] Y_im_out,    
-    output reg        Y_out,        // Valid Pulse (báo hiệu dữ liệu Y hợp lệ)
+    output reg        Y_out,       
 	 
 	 output reg start,
 
@@ -35,16 +25,11 @@ module uart_top (
     input [11:0]val_12bit_to_send
 );
 
-    // =================================================================
-    // 3. THAM SỐ VÀ KHAI BÁO
-    // =================================================================
-
     localparam CLK_FREQ  = 50000000;
     localparam BAUD_RATE = 9600;
 
     wire reset = sw_0; 
 
-    // UART Signals
     wire        rx_data_ready;
     wire [7:0]  rx_data;
     reg         tx_start_reg = 0;
@@ -71,12 +56,6 @@ module uart_top (
 			start_12bit_2<=start_12bit_1;
 		end
 	 end
-
-    // =================================================================
-    // 4. KHỐI RAM LƯU TRỮ MA TRẬN
-    // =================================================================
-    
-    // Khai báo mảng nhớ (Distributed RAM / Registers)
     
     reg [31:0] ram_H_re [0:15];
     reg [31:0] ram_H_im [0:15];
@@ -84,10 +63,6 @@ module uart_top (
     
     reg [31:0] ram_Y_re [0:7];
     reg [31:0] ram_Y_im [0:7];
-
-    // =================================================================
-    // 5. MÁY TRẠNG THÁI (FSM)
-    // =================================================================
 
     localparam S_IDLE       = 4'd0;
     localparam S_RECV_H     = 4'd1;
@@ -97,7 +72,7 @@ module uart_top (
     localparam S_WAIT_TX    = 4'd5; // Chờ Echo xong 1 byte
     localparam S_STREAM     = 4'd6; // Bắn dữ liệu sang Decoder
     
-    // --- TRẠNG THÁI MỚI CHO 12-BIT ---
+    // --- TRẠNG THÁI CHO 12-BIT ---
     localparam S_PRE_12BIT  = 4'd7; // Chuẩn bị gửi 12 bit
     localparam S_SEND_12BIT = 4'd8; // Gửi từng byte của 12 bit
     localparam S_WAIT_12BIT = 4'd9; // Chờ gửi xong
@@ -112,13 +87,9 @@ module uart_top (
     reg [4:0] tx_elem_idx = 0; // Đếm phần tử gửi Echo
     reg [31:0] tx_temp_val;    // Giá trị tạm gửi Echo
 
-    // Biến đếm cho quá trình Stream sang Decoder
+    // Biến đếm cho quá trình gui sang Decoder
     reg [4:0] stream_h_idx;
     reg [3:0] stream_y_idx;
-
-    // =================================================================
-    // 6. MODULES CON
-    // =================================================================
 
     async_receiver #( .ClkFrequency(CLK_FREQ), .Baud(BAUD_RATE) ) 
     rx_inst (
@@ -133,13 +104,10 @@ module uart_top (
     );
 
     // Debug LED
-    assign LEDR[3:0] = state;     // Hiển thị state 4 bit
+    assign LEDR[3:0] = state;     
     assign LEDR[9]   = rx_data_ready;
     assign LEDR[8]   = H_out | Y_out; // Sáng khi đang bắn dữ liệu sang decoder
 
-    // =================================================================
-    // 7. LOGIC CHÍNH
-    // =================================================================
     always @(posedge CLOCK_50 or posedge reset) begin
         if (reset) begin
             state <= S_IDLE;
@@ -160,15 +128,11 @@ module uart_top (
             Y_re_out <= 0; Y_im_out <= 0; Y_out <= 0;
             
         end else begin
-            // --- DEFAULT ASSIGNMENTS (QUAN TRỌNG) ---
-            // Tự động tắt tín hiệu Valid và Start sau 1 xung clock
-            // Nếu logic bên dưới không set lại thành 1, nó sẽ về 0.
             if (tx_start_reg) tx_start_reg <= 0;
             H_out <= 0; 
             Y_out <= 0;
 
             case (state)
-                // --- TRẠNG THÁI CHỜ ---
                 S_IDLE: begin
                     if (rx_data_ready) begin
                         if (rx_data == 8'hAA) begin        
@@ -183,27 +147,24 @@ module uart_top (
 
                 // --- NHẬN MA TRẬN H ---
                 S_RECV_H: begin
-                    if (rx_data_ready) begin
-                        // Lắp ráp byte (Little Endian: LSB First)
+                    if (rx_data_ready) begin     
                         if (byte_cnt < 4) tmp_re <= {rx_data, tmp_re[31:8]};
                         else tmp_im <= {rx_data, tmp_im[31:8]};
 
                         byte_cnt <= byte_cnt + 1;
 
                         if (byte_cnt == 7) begin
-                            // Ghi vào RAM H
                             ram_H_re[h_index] <= tmp_re;
                             ram_H_im[h_index] <= {rx_data, tmp_im[31:8]};
                             
                             byte_cnt <= 0;
                             h_index <= h_index + 1;
 
-                            if (h_index == 15) state <= S_SEND_H_PRE; // Nhận đủ -> Echo
+                            if (h_index == 15) state <= S_SEND_H_PRE;
                         end
                     end
                 end
 
-                // --- NHẬN MA TRẬN Y ---
                 S_RECV_Y: begin
                     if (rx_data_ready) begin
                         if (byte_cnt < 4) tmp_re <= {rx_data, tmp_re[31:8]};
@@ -212,15 +173,13 @@ module uart_top (
                         byte_cnt <= byte_cnt + 1;
 
                         if (byte_cnt == 7) begin
-                            // Ghi vào RAM Y
                             ram_Y_re[y_index] <= tmp_re;
                             ram_Y_im[y_index] <= {rx_data, tmp_im[31:8]};
                             
                             byte_cnt <= 0;
                             y_index <= y_index + 1;
 
-                            if (y_index == 7) begin
-                                // SAU KHI NHẬN ĐỦ Y -> CHUYỂN SANG BẮN DỮ LIỆU
+                            if (y_index == 7) begin                           
                                 state <= S_STREAM;
                                 stream_h_idx <= 0;
                                 stream_y_idx <= 0;
@@ -228,8 +187,6 @@ module uart_top (
                         end
                     end
                 end
-
-                // --- GỬI LẠI H (ECHO) ĐỂ DEBUG ---
                 S_SEND_H_PRE: begin
                     tx_elem_idx <= 0; 
                     byte_cnt <= 0;
@@ -264,9 +221,8 @@ module uart_top (
                     end else state <= S_SEND_H;
                 end
 
-                // --- TRẠNG THÁI: BẮN DỮ LIỆU SANG SOML_DECODER ---
+                // gửi sang decoder
                 S_STREAM: begin
-                    // 1. Quét RAM H (16 phần tử)
                     if (stream_h_idx < 16) begin
                         H_re_out <= ram_H_re[stream_h_idx];
                         H_im_out <= ram_H_im[stream_h_idx];
@@ -274,7 +230,6 @@ module uart_top (
                         stream_h_idx <= stream_h_idx + 1;
                     end
 
-                    // 2. Quét RAM Y (8 phần tử) - chạy song song
                     if (stream_y_idx < 8) begin
                         Y_re_out <= ram_Y_re[stream_y_idx];
                         Y_im_out <= ram_Y_im[stream_y_idx];
@@ -285,18 +240,10 @@ module uart_top (
 						  if(stream_h_idx ==0 && stream_y_idx==0) start<=1'b1;
 						  else start <=1'b0;
 
-                    // 3. Kiểm tra hoàn tất
                     if (stream_h_idx == 16 && stream_y_idx == 8) begin
-                        // Thay vì về IDLE ngay, ta chuyển sang gửi kết quả 12-bit
                         state <= S_PRE_12BIT; 
                     end
                 end
-
-                // =================================================================
-                // 8. LOGIC GỬI 12-BIT MỚI THÊM VÀO
-                // =================================================================
-                
-                // Chuẩn bị biến đếm
                 S_PRE_12BIT: begin
                     byte_cnt <= 0; 
 						  if(start_12bit_2) begin
@@ -304,30 +251,25 @@ module uart_top (
 							end else state <= S_SEND_12BIT;
                 end
 
-                // Thực hiện gửi 2 byte
                 S_SEND_12BIT: begin
                     if (!tx_busy) begin
                         if (byte_cnt == 0) begin
-                            // Gửi Byte cao: 4 bit 0 + 4 bit cao của dữ liệu
                             tx_data_reg <= {4'b0000, val_12bit_tmp_2[11:8]};
                         end else begin
-                            // Gửi Byte thấp: 8 bit thấp của dữ liệu
                             tx_data_reg <= val_12bit_tmp_2[7:0];
                         end
                         
-                        tx_start_reg <= 1; // Kích hoạt module transmitter
+                        tx_start_reg <= 1; 
                         state <= S_WAIT_12BIT;
                     end
                 end
 
-                // Chờ TX gửi xong byte hiện tại
                 S_WAIT_12BIT: begin
                     
                     if (byte_cnt == 0) begin
-                        byte_cnt <= 1;        // Chuyển sang byte tiếp theo
-                        state <= S_SEND_12BIT; // Quay lại gửi byte thấp
+                        byte_cnt <= 1;        
+                        state <= S_SEND_12BIT; 
                     end else begin
-                        // Đã gửi xong cả 2 byte (byte_cnt == 1)
                         state <= S_IDLE;      
                     end
                 end

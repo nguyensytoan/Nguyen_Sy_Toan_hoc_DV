@@ -1,21 +1,16 @@
 module system_top (
     input  wire       CLOCK_50,
-    input  wire       sw_0,      // Switch Reset (Gạt lên = Chạy, Xuống = Reset)
+    input  wire       sw_0,    
     
-    // UART External Pins
     input  wire       GPIO_RX,
     output wire       GPIO_TX,
 
-    // LED hiển thị trạng thái
     output wire [9:0] LEDR
 );
 
-    // Xử lý tín hiệu Reset: Nếu sw_0 = 1 (Chạy) -> rst = 0. Nếu sw_0 = 0 -> rst = 1.
-    // Dựa vào logic trong code soml_decoder (input rst active high)
     wire sys_rst;
     assign sys_rst = sw_0; 
-
-    // --- Dây nối giữa UART và Decoder ---
+	
     // Data H
     wire [31:0] w_H_in_r;
     wire [31:0] w_H_in_i;
@@ -35,9 +30,6 @@ module system_top (
     wire signed [31:0] s_I_1, s_Q_1, s_I_2, s_Q_2;
     wire [4:0] Smin_index;
 
-    // =========================================================
-    // 1. INSTANCE UART CONTROLLER
-    // =========================================================
     uart_top uart_inst (
         .CLOCK_50(CLOCK_50),
         .sw_0(sys_rst),
@@ -62,9 +54,6 @@ module system_top (
         .val_12bit_to_send(w_signal_out_12bit)
     );
 
-    // =========================================================
-    // 2. INSTANCE SOML DECODER (CORE TÍNH TOÁN)
-    // =========================================================
     soml_decoder_top #(
         .Q(22),
         .N(32)
@@ -84,12 +73,12 @@ module system_top (
         .Y_in_i(w_Y_in_i),
 
         // Outputs
-        .s_I_1(s_I_1), .s_Q_1(s_Q_1), // Các symbol output (nếu cần debug)
+        .s_I_1(s_I_1), .s_Q_1(s_Q_1), 
         .s_I_2(s_I_2), .s_Q_2(s_Q_2),
         .Smin_index(Smin_index),
         
-        .output_valid(w_decoder_done),      // Báo data sẵn sàng cho UART
-        .signal_out_12bit(w_signal_out_12bit) // Dữ liệu trả về
+        .output_valid(w_decoder_done),   
+        .signal_out_12bit(w_signal_out_12bit) 
     );
 
 endmodule
